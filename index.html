@@ -1,0 +1,619 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pokémon Chatbot</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f0f2f5;
+        }
+        .chat-container {
+            max-width: 600px;
+            margin: 20px auto;
+            background-color: #ffffff;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            height: 85vh;
+        }
+        .chat-box {
+            flex-grow: 1;
+            padding: 20px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .message {
+            max-width: 75%;
+            padding: 10px 15px;
+            border-radius: 18px;
+            word-wrap: break-word;
+        }
+        .user-message {
+            align-self: flex-end;
+            background-color: #6366f1;
+            color: white;
+            border-bottom-right-radius: 4px;
+        }
+        .bot-message {
+            align-self: flex-start;
+            background-color: #e0e7ff;
+            color: #1e3a8a;
+            border-bottom-left-radius: 4px;
+        }
+        .input-area {
+            display: flex;
+            padding: 15px 20px;
+            border-top: 1px solid #e5e7eb;
+            gap: 10px;
+        }
+        .input-area input {
+            flex-grow: 1;
+            padding: 10px 15px;
+            border: 1px solid #d1d5db;
+            border-radius: 20px;
+            outline: none;
+            font-size: 1rem;
+        }
+        .input-area button {
+            background-color: #4f46e5;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 20px;
+            border: none;
+            cursor: pointer;
+            transition: background-color 0.2s ease-in-out;
+        }
+        .input-area button:hover {
+            background-color: #4338ca;
+        }
+        .loading-dots span {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            background-color: #4f46e5;
+            border-radius: 50%;
+            animation: bounce 1.4s infinite ease-in-out both;
+        }
+        .loading-dots span:nth-child(1) { animation-delay: -0.32s; }
+        .loading-dots span:nth-child(2) { animation-delay: -0.16s; }
+        .loading-dots span:nth-child(3) { animation-delay: 0s; }
+        @keyframes bounce {
+            0%, 80%, 100% { transform: scale(0); }
+            40% { transform: scale(1); }
+        }
+        .battle-image {
+            max-width: 90%;
+            height: auto;
+            border-radius: 8px;
+            margin-top: 10px;
+            align-self: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="chat-container">
+        <div class="chat-box" id="chat-box">
+            <div class="message bot-message">Hello! I'm your Pokémon chatbot. Ask me about Pokémon movesets or type effectiveness!</div>
+        </div>
+        <div class="input-area">
+            <input type="text" id="user-input" placeholder="Ask a question about Pokémon..." autocomplete="off">
+            <button id="send-button">Send</button>
+        </div>
+    </div>
+
+    <script>
+        const chatBox = document.getElementById('chat-box');
+        const userInput = document.getElementById('user-input');
+        const sendButton = document.getElementById('send-button');
+
+        const pokemonData = {
+            "pikachu": {
+                name: "Pikachu",
+                types: ["Electric"],
+                moves: ["Thunder Shock", "Quick Attack", "Thunderbolt", "Iron Tail"],
+                description: "Pikachu is an Electric-type Pokémon introduced in Generation I. It is known for its electric attacks."
+            },
+            "charizard": {
+                name: "Charizard",
+                types: ["Fire", "Flying"],
+                moves: ["Flamethrower", "Wing Attack", "Dragon Claw", "Blast Burn"],
+                description: "Charizard is a Fire/Flying-type Pokémon. It can fly up to 1,400 meters and breathes fire hot enough to melt boulders."
+            },
+            "blastoise": {
+                name: "Blastoise",
+                types: ["Water"],
+                moves: ["Hydro Pump", "Water Pulse", "Skull Bash", "Flash Cannon"],
+                description: "Blastoise is a Water-type Pokémon. It has water cannons on its shell that can fire water with enough force to pierce steel."
+            },
+            "venusaur": {
+                name: "Venusaur",
+                types: ["Grass", "Poison"],
+                moves: ["Vine Whip", "Razor Leaf", "Petal Dance", "Solar Beam"],
+                description: "Venusaur is a Grass/Poison-type Pokémon. It uses its flower to absorb sunlight, which it converts into energy."
+            },
+            "mewtwo": {
+                name: "Mewtwo",
+                types: ["Psychic"],
+                moves: ["Psychic", "Shadow Ball", "Aura Sphere", "Recover"],
+                description: "Mewtwo is a Psychic-type legendary Pokémon created by genetic manipulation."
+            },
+            "machamp": {
+                name: "Machamp",
+                types: ["Fighting"],
+                moves: ["Dynamic Punch", "Close Combat", "Bullet Punch", "Stone Edge"],
+                description: "Machamp is a Fighting-type Pokémon with four powerful arms that can throw 1,000 punches in two seconds."
+            },
+            "eevee": {
+                name: "Eevee",
+                types: ["Normal"],
+                moves: ["Tackle", "Quick Attack", "Swift"],
+                description: "Eevee is a Normal-type Pokémon known for its unstable genetic code, allowing it to evolve into multiple different forms."
+            },
+            "snorlax": {
+                name: "Snorlax",
+                types: ["Normal"],
+                moves: ["Rest", "Snore", "Body Slam", "Hyper Beam"],
+                description: "Snorlax is a Normal-type Pokémon known for its enormous size and its tendency to sleep and eat."
+            },
+            "gengar": {
+                name: "Gengar",
+                types: ["Ghost", "Poison"],
+                moves: ["Shadow Ball", "Sludge Bomb", "Dazzling Gleam", "Hypnosis"],
+                description: "Gengar is a Ghost/Poison-type Pokémon. It likes to hide in shadows and play pranks."
+            },
+            "charmander": {
+                name: "Charmander",
+                types: ["Fire"],
+                moves: ["Scratch", "Ember", "Smokescreen"],
+                description: "Charmander is a Fire-type Pokémon known for the flame on its tail, which indicates its life force."
+            },
+            "squirtle": {
+                name: "Squirtle",
+                types: ["Water"],
+                moves: ["Tackle", "Water Gun", "Bubble"],
+                description: "Squirtle is a Water-type Pokémon that can withdraw into its shell for protection and spray water with great force."
+            }
+        };
+
+        const typeEffectiveness = {
+            "Fire": { "Grass": "super effective", "Ice": "super effective", "Bug": "super effective", "Steel": "super effective", "Water": "not very effective", "Rock": "not very effective", "Fire": "not very effective", "Dragon": "not very effective" },
+            "Water": { "Fire": "super effective", "Ground": "super effective", "Rock": "super effective", "Grass": "not very effective", "Electric": "not very effective", "Water": "not very effective", "Dragon": "not very effective" },
+            "Grass": { "Water": "super effective", "Ground": "super effective", "Rock": "super effective", "Fire": "not very effective", "Flying": "not very effective", "Bug": "not very effective", "Poison": "not very effective", "Dragon": "not very effective", "Steel": "not very effective" },
+            "Electric": { "Water": "super effective", "Flying": "super effective", "Grass": "not very effective", "Electric": "not very effective", "Dragon": "not very effective", "Ground": "immune" },
+            "Fighting": { "Normal": "super effective", "Ice": "super effective", "Rock": "super effective", "Dark": "super effective", "Steel": "super effective", "Poison": "not very effective", "Flying": "not very effective", "Psychic": "not very effective", "Bug": "not very effective", "Fairy": "not very effective", "Ghost": "immune" },
+            "Psychic": { "Fighting": "super effective", "Poison": "super effective", "Psychic": "not very effective", "Steel": "not very effective", "Dark": "immune" },
+            "Normal": { "Fighting": "super effective", "Ghost": "immune" },
+            "Ghost": { "Psychic": "super effective", "Ghost": "super effective", "Normal": "immune", "Fighting": "immune" },
+            "Poison": { "Grass": "super effective", "Fairy": "super effective", "Fighting": "super effective", "Poison": "not very effective", "Ground": "not very effective", "Rock": "not very effective", "Ghost": "not very effective" },
+        };
+
+        const abilitiesData = {
+            "blaze": { description: "Boosts the power of Fire-type moves when the Pokémon's HP is low." },
+            "torrent": { description: "Boosts the power of Water-type moves when the Pokémon's HP is low." },
+            "overgrow": { description: "Boosts the power of Grass-type moves when the Pokémon's HP is low." },
+            "static": { description: "May paralyse the foe on contact." },
+            "intimidate": { description: "Lowers the foe's Attack stat." },
+            "synchronize": { description: "When this Pokémon is poisoned, paralysed, or burned, the foe is afflicted with the same status condition." },
+            "guts": { description: "Boosts Attack when afflicted with a status condition." }
+        };
+
+        const regionsData = ["Kanto", "Johto", "Hoenn", "Sinnoh", "Unova", "Kalos", "Alola", "Galar", "Paldea"];
+
+        function displayMessage(message, sender, isImage = false) {
+            const messageElement = document.createElement('div');
+            messageElement.classList.add('message', `${sender}-message`);
+            if (isImage) {
+                const img = document.createElement('img');
+                img.src = message;
+                img.classList.add('battle-image', 'rounded-lg');
+                messageElement.classList.remove('message', `${sender}-message`);
+                messageElement.classList.add('flex', 'justify-center', 'w-full');
+                messageElement.appendChild(img);
+            } else {
+                messageElement.textContent = message;
+            }
+            chatBox.appendChild(messageElement);
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
+
+        async function callGeminiAPI(prompt, modelName = 'gemini-2.5-flash-preview-05-20') {
+            const apiKey = "";
+            let apiUrl = '';
+            let payload = {};
+
+            if (modelName === 'imagen-3.0-generate-002') {
+                apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-002:predict?key=${apiKey}`;
+                payload = { instances: { prompt: prompt }, parameters: { "sampleCount": 1 } };
+                console.log(`[callGeminiAPI] Image API URL: ${apiUrl}`);
+                console.log(`[callGeminiAPI] Image Payload: ${JSON.stringify(payload)}`);
+            } else {
+                apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
+                payload = { contents: [{ role: "user", parts: [{ text: prompt }] }] };
+                console.log(`[callGeminiAPI] Text API URL: ${apiUrl}`);
+                console.log(`[callGeminiAPI] Text Payload: ${JSON.stringify(payload)}`);
+            }
+
+            let retries = 0;
+            const maxRetries = 5;
+            const initialDelay = 1000;
+
+            while (retries < maxRetries) {
+                try {
+                    const response = await fetch(apiUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+
+                    if (!response.ok) {
+                        console.error(`[callGeminiAPI] HTTP Error: ${response.status} - ${response.statusText}`);
+                        if (response.status === 429) {
+                            const delay = initialDelay * Math.pow(2, retries) + Math.random() * 1000;
+                            console.warn(`[callGeminiAPI] Rate limit hit. Retrying in ${delay}ms... (Attempt ${retries + 1})`);
+                            await new Promise(res => setTimeout(res, delay));
+                            retries++;
+                            continue;
+                        } else {
+                            throw new Error(`HTTP error! status: ${response.status}`);
+                        }
+                    }
+
+                    const result = await response.json();
+                    console.log(`[callGeminiAPI] API Result for ${modelName}:`, result);
+
+                    if (modelName === 'imagen-3.0-generate-002') {
+                        if (result.predictions && result.predictions.length > 0 && result.predictions[0].bytesBase64Encoded) {
+                            console.log('[callGeminiAPI] Image data received successfully.');
+                            return `data:image/png;base64,${result.predictions[0].bytesBase64Encoded}`;
+                        } else {
+                            console.warn('[callGeminiAPI] Image generation failed: No base64 data found in response.');
+                            return null;
+                        }
+                    } else {
+                        if (result.candidates && result.candidates.length > 0 &&
+                            result.candidates[0].content && result.candidates[0].content.parts &&
+                            result.candidates[0].content.parts.length > 0) {
+                            console.log('[callGeminiAPI] Text data received successfully.');
+                            return result.candidates[0].content.parts[0].text;
+                        } else {
+                            console.warn('[callGeminiAPI] Text generation failed: No content found in response.');
+                            return "I couldn't get a clear answer right now. Please try rephrasing your question.";
+                        }
+                    }
+                } catch (error) {
+                    console.error(`[callGeminiAPI] Error during API call to ${modelName}:`, error);
+                    return "Sorry, I'm having trouble connecting right now. Please try again later.";
+                }
+            }
+            console.error(`[callGeminiAPI] Max retries reached for ${modelName}.`);
+            return "I've tried several times, but I'm still unable to get a response. Please try again later.";
+        }
+
+        async function processUserCommand(command) {
+            command = command.toLowerCase().trim();
+            let response = "I'm not sure how to answer that. Can you ask about a Pokémon's types, movesets, or type effectiveness?";
+
+            const loadingMessage = document.createElement('div');
+            loadingMessage.classList.add('message', 'bot-message');
+            loadingMessage.innerHTML = `<div class="loading-dots"><span></span><span></span><span></span></div>`;
+            chatBox.appendChild(loadingMessage); // Always add loading message at the start
+            chatBox.scrollTop = chatBox.scrollHeight;
+
+            let specificResponseFound = false;
+            let geminiPrompt = "";
+
+            // Check for Pokémon types, movesets, description from local data
+            for (const pokemonName in pokemonData) {
+                if (command.includes(pokemonName)) {
+                    const pokemon = pokemonData[pokemonName];
+                    if (command.includes("type") || command.includes("types")) {
+                        response = `${pokemon.name} is a ${pokemon.types.join(' and ')} type Pokémon.`;
+                        specificResponseFound = true;
+                        break;
+                    } else if (command.includes("moveset") || command.includes("moves")) {
+                        response = `${pokemon.name}'s known moves are: ${pokemon.moves.join(', ')}.`;
+                        specificResponseFound = true;
+                        break;
+                    } else if (command.includes("description") || command.includes("about")) {
+                         response = pokemon.description;
+                         specificResponseFound = true;
+                         break;
+                    }
+                }
+            }
+
+            // Check for type effectiveness from local data
+            if (!specificResponseFound && (command.includes("effective against") || command.includes("weak against") || command.includes("weak to"))) {
+                let foundAttackingType = null;
+                let foundDefendingType = null;
+
+                for (const type of Object.keys(typeEffectiveness)) {
+                    if (command.includes(type.toLowerCase())) {
+                        if (!foundAttackingType) {
+                            foundAttackingType = type;
+                        } else {
+                            foundDefendingType = type;
+                            break;
+                        }
+                    }
+                }
+
+                if (foundAttackingType && foundDefendingType) {
+                    const effect = typeEffectiveness[foundAttackingType]?.[foundDefendingType];
+                    if (effect) {
+                        response = `${foundAttackingType}-type moves are ${effect} against ${foundDefendingType}-type Pokémon.`;
+                        specificResponseFound = true;
+                    } else {
+                        response = `I can tell you about the effectiveness between ${foundAttackingType} and ${foundDefendingType}, but I don't have that specific interaction in my database.`;
+                        specificResponseFound = true;
+                    }
+                } else if (foundAttackingType) {
+                    const effects = typeEffectiveness[foundAttackingType];
+                    if (effects) {
+                        let superEffective = [];
+                        let notVeryEffective = [];
+                        for (const defType in effects) {
+                            if (effects[defType] === "super effective") {
+                                superEffective.push(defType);
+                            } else if (effects[defType] === "not very effective") {
+                                notVeryEffective.push(defType);
+                            }
+                        }
+                        let typeInfo = `${foundAttackingType}-type moves are super effective against: ${superEffective.length ? superEffective.join(', ') : 'none'}. They are not very effective against: ${notVeryEffective.length ? notVeryEffective.join(', ') : 'none'}.`;
+                        response = typeInfo;
+                        specificResponseFound = true;
+                    }
+                }
+            }
+
+            // Gemini API feature: Pokémon Lore/Trivia
+            if (!specificResponseFound) {
+                let pokemonLoreMatch = command.match(/(?:tell me a fact about|what is a fact about|lore about|trivia about)\s+([a-z]+)/);
+                if (pokemonLoreMatch && pokemonLoreMatch[1]) {
+                    const requestedPokemonName = pokemonLoreMatch[1];
+                    geminiPrompt = `Provide an interesting, concise fact or lore about the Pokémon: ${requestedPokemonName}. Focus on a unique aspect or history. If you don't know, state that you lack information.`;
+                    response = await callGeminiAPI(geminiPrompt);
+                    specificResponseFound = true;
+                }
+            }
+
+            // Gemini API feature: Explain Pokémon Moves
+            if (!specificResponseFound) {
+                let moveExplainMatch = command.match(/(?:explain|what is|describe)\s+(.+?)\s+move/);
+                if (moveExplainMatch && moveExplainMatch[1]) {
+                    const requestedMoveName = moveExplainMatch[1];
+                    let foundLocalMove = false;
+                    for (const pkmn in pokemonData) {
+                        if (pokemonData[pkmn].moves.some(move => move.toLowerCase().includes(requestedMoveName.toLowerCase()))) {
+                            response = `"${requestedMoveName}" is a known move. Many Pokémon use it in battle.`;
+                            foundLocalMove = true;
+                            specificResponseFound = true;
+                            break;
+                        }
+                    }
+                    if (!foundLocalMove) {
+                        geminiPrompt = `Describe the Pokémon move named: ${requestedMoveName}. What does it do in battle? Keep it concise. If you don't know, state that you lack information.`;
+                        response = await callGeminiAPI(geminiPrompt);
+                        specificResponseFound = true;
+                    }
+                }
+            }
+
+            // Gemini API feature: Suggest Counter Pokémon
+            if (!specificResponseFound) {
+                let counterMatch = command.match(/(?:what counters|suggest a counter for|strong against)\s+([a-z]+)/);
+                if (counterMatch && counterMatch[1]) {
+                    const requestedPokemonName = counterMatch[1];
+                    geminiPrompt = `Given the Pokémon "${requestedPokemonName}", what types or specific Pokémon would be an effective counter against it in battle? Provide a concise answer. If you don't know, state that you lack information.`;
+                    response = await callGeminiAPI(geminiPrompt);
+                    specificResponseFound = true;
+                }
+            }
+
+            // Gemini API feature: Generate Battle Scenario AND Image
+            if (!specificResponseFound) {
+                let battleMatch = command.match(/(?:create a battle scenario between|imagine a fight between)\s+([a-z]+)\s+and\s+([a-z]+)/);
+                if (battleMatch && battleMatch[1] && battleMatch[2]) {
+                    const pokemon1 = battleMatch[1];
+                    const pokemon2 = battleMatch[2];
+
+                    // Generate text scenario
+                    const textPrompt = `Create a very short and engaging battle scenario between ${pokemon1} and ${pokemon2} in a few sentences. Make it sound like a dynamic Pokémon battle.`;
+                    const textResponse = await callGeminiAPI(textPrompt);
+
+                    // Update loading message for image - now part of the `loadingMessage` itself
+                    loadingMessage.innerHTML = `Generating image... <div class="loading-dots"><span></span><span></span><span></span></div>`;
+                    
+                    // Generate image
+                    const imagePrompt = `A dynamic Pokémon battle illustration featuring ${pokemon1} battling ${pokemon2}, highly detailed, action shot, epic, vibrant colours.`;
+                    console.log(`[processUserCommand] Attempting to generate image with prompt: ${imagePrompt}`);
+                    const imageUrl = await callGeminiAPI(imagePrompt, 'imagen-3.0-generate-002');
+                    console.log(`[processUserCommand] Image URL received:`, imageUrl ? 'Image data present' : 'No image data');
+
+                    // Display text response first
+                    displayMessage(textResponse, 'bot');
+                    if (imageUrl) {
+                        displayMessage(imageUrl, 'bot', true);
+                    } else {
+                        displayMessage("Sorry, I couldn't generate an image for this battle right now.", 'bot');
+                    }
+                    specificResponseFound = true;
+                }
+            }
+
+            // --- NEW FEATURES START HERE ---
+
+            // 1. Suggest a Team Member
+            if (!specificResponseFound) {
+                let teamSuggestMatch = command.match(/(?:suggest a team member with|recommend a pokemon for a team with)\s+([a-z]+)/);
+                if (teamSuggestMatch && teamSuggestMatch[1]) {
+                    const anchorPokemon = teamSuggestMatch[1];
+                    geminiPrompt = `Suggest one Pokémon that would be a good team member to complement ${anchorPokemon}, considering type coverage and synergy. Explain briefly why.`;
+                    response = await callGeminiAPI(geminiPrompt);
+                    specificResponseFound = true;
+                }
+            }
+
+            // 2. Describe Pokémon Habitat
+            if (!specificResponseFound) {
+                let habitatMatch = command.match(/(?:where does|what is the habitat of)\s+([a-z]+)\s+live/);
+                if (habitatMatch && habitatMatch[1]) {
+                    const requestedPokemonName = habitatMatch[1];
+                    geminiPrompt = `Describe the typical habitat or environment where the Pokémon ${requestedPokemonName} can be found. Keep it concise.`;
+                    response = await callGeminiAPI(geminiPrompt);
+                    specificResponseFound = true;
+                }
+            }
+
+            // 3. Explain an Ability
+            if (!specificResponseFound) {
+                let abilityExplainMatch = command.match(/(?:what does|explain|describe)\s+'?([a-z\s]+?)'?\s+(?:ability|do|mean)/);
+                if (abilityExplainMatch && abilityExplainMatch[1]) {
+                    const requestedAbilityName = abilityExplainMatch[1].trim();
+                    if (abilitiesData[requestedAbilityName]) {
+                        response = `The ability "${abilitiesData[requestedAbilityName].description}"`;
+                        specificResponseFound = true;
+                    } else {
+                        geminiPrompt = `Explain what the Pokémon ability "${requestedAbilityName}" does in battle or in the field. Keep it concise. If you don't know, state that you lack information.`;
+                        response = await callGeminiAPI(geminiPrompt);
+                        specificResponseFound = true;
+                    }
+                }
+            }
+
+            // 4. Suggest a Nickname
+            if (!specificResponseFound) {
+                let nicknameSuggestMatch = command.match(/(?:give me a nickname for|suggest a nickname for)\s+([a-z]+)/);
+                if (nicknameSuggestMatch && nicknameSuggestMatch[1]) {
+                    const requestedPokemonName = nicknameSuggestMatch[1];
+                    geminiPrompt = `Suggest a creative and fitting nickname for the Pokémon ${requestedPokemonName}.`;
+                    response = await callGeminiAPI(geminiPrompt);
+                    specificResponseFound = true;
+                }
+            }
+
+            // 5. Simulate Evolution Advice
+            if (!specificResponseFound) {
+                let evolveMatch = command.match(/(?:how does|how to evolve)\s+([a-z]+)\s*(?:evolve)?/);
+                if (evolveMatch && evolveMatch[1]) {
+                    const requestedPokemonName = evolveMatch[1];
+                    geminiPrompt = `Explain how the Pokémon ${requestedPokemonName} evolves. Be concise and specific about any conditions or items needed. If it doesn't evolve, state that.`;
+                    response = await callGeminiAPI(geminiPrompt);
+                    specificResponseFound = true;
+                }
+            }
+
+            // 6. Create a Pokédex Entry
+            if (!specificResponseFound) {
+                let pokedexEntryMatch = command.match(/(?:write a pokedex entry for|give me a pokedex entry for)\s+([a-z]+)/);
+                if (pokedexEntryMatch && pokedexEntryMatch[1]) {
+                    const requestedPokemonName = pokedexEntryMatch[1];
+                    geminiPrompt = `Write a short and descriptive Pokédex entry for the Pokémon ${requestedPokemonName}, similar to what you'd find in the games.`;
+                    response = await callGeminiAPI(geminiPrompt);
+                    specificResponseFound = true;
+                }
+            }
+
+            // 7. Recommend a Held Item
+            if (!specificResponseFound) {
+                let heldItemMatch = command.match(/(?:what item should a|recommend an item for)\s+([a-z]+)\s*(?:hold)?/);
+                if (heldItemMatch && heldItemMatch[1]) {
+                    const requestedPokemonName = heldItemMatch[1];
+                    geminiPrompt = `Suggest one useful held item for the Pokémon ${requestedPokemonName} in battle, and briefly explain its benefit.`;
+                    response = await callGeminiAPI(geminiPrompt);
+                    specificResponseFound = true;
+                }
+            }
+
+            // 8. Describe a Region
+            if (!specificResponseFound) {
+                let regionMatch = command.match(/(?:tell me about the|describe the)\s+([a-z]+)\s+region/);
+                if (regionMatch && regionMatch[1]) {
+                    const requestedRegionName = regionMatch[1];
+                    if (regionsData.includes(requestedRegionName.charAt(0).toUpperCase() + requestedRegionName.slice(1))) {
+                        geminiPrompt = `Provide a concise description of the Pokémon region: ${requestedRegionName}. Mention its key characteristics or defining features.`;
+                        response = await callGeminiAPI(geminiPrompt);
+                        specificResponseFound = true;
+                    } else {
+                        response = `I don't have information on the ${requestedRegionName} region. Please try one of the main Pokémon regions like Kanto or Johto.`;
+                        specificResponseFound = true;
+                    }
+                }
+            }
+
+            // 9. Propose a Trainer Name
+            if (!specificResponseFound) {
+                if (command.includes("suggest a cool trainer name") || command.includes("give me a trainer name")) {
+                    geminiPrompt = `Suggest a creative and cool name for a Pokémon trainer.`;
+                    response = await callGeminiAPI(geminiPrompt);
+                    specificResponseFound = true;
+                }
+            }
+
+            // 10. Explain a Game Mechanic
+            if (!specificResponseFound) {
+                let mechanicMatch = command.match(/(?:explain|what are|what is)\s+(.+?)\s+(?:in pokemon|mechanics)/);
+                if (mechanicMatch && mechanicMatch[1]) {
+                    const requestedMechanic = mechanicMatch[1];
+                    geminiPrompt = `Explain the Pokémon game mechanic "${requestedMechanic}". Keep the explanation clear and concise. If you don't know, state that you lack information.`;
+                    response = await callGeminiAPI(geminiPrompt);
+                    specificResponseFound = true;
+                }
+            }
+
+            // --- NEW FEATURES END HERE ---
+
+            // Fallback to general Gemini API if no specific answer found
+            if (!specificResponseFound) {
+                 geminiPrompt = `You are a helpful Pokémon chatbot. Answer the following question based on your general knowledge about Pokémon. If you don't know, say you don't have that information.
+
+                 User: ${command}
+
+                 Please provide a concise and direct answer.`;
+                 response = await callGeminiAPI(geminiPrompt);
+            }
+
+            // Remove loading message at the very end, ensuring it's always a child if added
+            chatBox.removeChild(loadingMessage);
+
+            // Only display general text response if a specific feature didn't already handle display
+            if (!specificResponseFound) {
+                displayMessage(response, 'bot');
+            }
+        }
+
+        sendButton.addEventListener('click', () => {
+            const userText = userInput.value;
+            if (userText.trim() === '') return;
+
+            displayMessage(userText, 'user');
+            userInput.value = '';
+            processUserCommand(userText);
+        });
+
+        userInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                sendButton.click();
+            }
+        });
+    </script>
+</body>
+</html>
